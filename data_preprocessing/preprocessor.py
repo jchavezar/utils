@@ -95,6 +95,7 @@ class Preprocessor:
             },
             open(os.path.join(self.results, "config.pkl"), "wb"),
         )
+        return self.results
 
     def preprocess_pair(self, pair):
         fname = os.path.basename(pair["image"] if isinstance(pair, dict) else pair)
