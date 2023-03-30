@@ -29,8 +29,7 @@ from data_preprocessing import configs, transforms
 
 
 class Preprocessor:
-    def __init__(self, args):
-        self.args = args
+    def __init__(self, task, dim, data, results, exec_mode, force):
 
         self.ct_min = 0
         self.ct_max = 0
@@ -38,18 +37,24 @@ class Preprocessor:
         self.ct_std = 0
         self.target_spacing = None
 
-        self.task = args["task"]
-        self.task_code = get_task_code(args)
+        self.task = task
+        self.dim = dim
+        self.data = data
+        self.results = results
+        self.exec_mode = exec_mode
+        self.force = force
+        self.n_jobs = n_jobs
+        self.task_code = get_task_code(self.task, self.dim)
         self.patch_size = configs.patch_size[self.task_code]
-        self.training = args["exec_mode"] == "training"
+        self.training = self.exec_mode == "training"
 
-        self.data_path = args["data"] / configs.task[args["task"]]
-        self.results = args.results / self.task_code
+        self.data_path = data / configs.task[self.task]
+        self.results = self.results / self.task_code
         if not self.training:
-            self.results /= self.args["exec_mode"]
+            self.results /= self.exec_mode
 
         metadata_path = self.data_path / "dataset.json"
-        if self.args["exec_mode"] == "val":
+        if self.exec_mode == "val":
             dataset_json = json.load(open(metadata_path, "r"))
             dataset_json["val"] = dataset_json["training"]
             with open(metadata_path, "w") as outfile:
@@ -59,7 +64,7 @@ class Preprocessor:
 
     def run(self):
         print(f"Preprocessing {self.data_path}")
-        make_empty_dir(self.results, force=self.args["force"])
+        make_empty_dir(self.results, force=self.force)
 
         if self.task_code in configs.spacings:
             self.target_spacing = configs.spacings[self.task_code]
@@ -79,7 +84,7 @@ class Preprocessor:
             _std = round(self.ct_std, 2)
             print(f"[CT] min: {self.ct_min}, max: {self.ct_max}, mean: {_mean}, std: {_std}")
 
-        self.run_parallel(self.preprocess_pair, self.args["exec_mode"])
+        self.run_parallel(self.preprocess_pair, self.exec_mode)
 
         pickle.dump(
             {
@@ -99,7 +104,7 @@ class Preprocessor:
         image, label, bbox = transforms.crop_foreground(image, label)
         test_metadata = np.vstack([bbox, original_size]) if not self.training else None
 
-        if self.args["dim"] == 3:
+        if self.dim == 3:
             image, label = self.resample(image, label, image_spacings)
         if self.modality == "CT":
             image = np.clip(image, self.ct_min, self.ct_max)
@@ -121,7 +126,7 @@ class Preprocessor:
             paddings = [(pad_sh - image_sh) / 2 for (pad_sh, image_sh) in zip(pad_shape, image_shape)]
             image = self.pad(image, paddings)
             label = self.pad(label, paddings)
-        if self.args["dim"] == 2:  # Center cropping 2D images.
+        if self.dim == 2:  # Center cropping 2D images.
             _, _, height, weight = image.shape
             start_h = (height - self.patch_size[0]) // 2
             start_w = (weight - self.patch_size[1]) // 2
@@ -222,7 +227,7 @@ class Preprocessor:
         np.save(os.path.join(self.results, fname.replace(".nii.gz", suffix)), image, allow_pickle=False)
 
     def run_parallel(self, func, exec_mode):
-        return Parallel(n_jobs=self.args["n_jobs"])(delayed(func)(pair) for pair in self.metadata[exec_mode])
+        return Parallel(n_jobs=self.n_jobs)(delayed(func)(pair) for pair in self.metadata[exec_mode])
 
     def load_nifty(self, fname):
         return nibabel.load(os.path.join(self.data_path, fname))

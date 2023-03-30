@@ -90,8 +90,8 @@ def set_seed(seed):
     tf.random.set_seed(seed)
 
 
-def get_task_code(args):
-    return f"{args["task"]}_{args["dim"]}d_tf2"
+def get_task_code(task, dim):
+    return f"{task}_{dim}d_tf2"
 
 
 def get_config_file(args):
