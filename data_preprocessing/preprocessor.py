@@ -29,7 +29,7 @@ from data_preprocessing import configs, transforms
 
 
 class Preprocessor:
-    def __init__(self, task, dim, data, results, exec_mode, force):
+    def __init__(self, task, dim, data, results, exec_mode, force, n_jobs):
 
         self.ct_min = 0
         self.ct_max = 0
